@@ -16,47 +16,52 @@ class ProductsPage:
         self.products_url = self.aws_url + products_page
 
     def products_page_content(self):
-        """ http call to products url and return contents"""
-        return get(self.products_url).content
+        """ HTTP call to products URL and return contents """
+        response = get(self.products_url)
+        if response.status_code != 200:
+            raise Exception(f"Failed to fetch page: {response.status_code}")
+        return response.content
 
     def parse_products_page(self):
-        """ parse products page
-            return list of products
-            each item is a dict """
-        html_obj = html.fromstring(self.products_page_content())
+        """ Parse products page and return list of products """
+        html_content = self.products_page_content()
+        html_obj = html.fromstring(html_content)
+
+        # Debug: Save the HTML content to a file for inspection
+        with open("debug.html", "wb") as f:
+            f.write(html_content)
+
         output = []
-        # Parse the sections for each category
         sections = html_obj.xpath('//*[contains(@class, "lb-item-wrapper")]')
+        if not sections:
+            print("No sections found. Check the HTML structure.")
         for section in sections:
             category = section.find('a/span').text.strip()
             products = []
-            # get details for each service in this category
             for svc in section.findall('div/div/a'):
                 products.append({
-                    'Category':     category,
-                    'Product':      svc.text.strip(),
-                    'Description':  svc.find('span').text.strip(),
-                    'Link':         self.aws_url + svc.get('href').strip()
+                    'Category': category,
+                    'Product': svc.text.strip(),
+                    'Description': svc.find('span').text.strip(),
+                    'Link': self.aws_url + svc.get('href').strip()
                 })
-            # Sort the products in this category by Product Name
             output += sorted(products, key=lambda x: x['Product'])
         return output
 
 def main():
-    """ main method """
+    """ Main method """
     products_page = ProductsPage(
         aws_url='https://aws.amazon.com',
         products_page='/products'
     )
     products_list = products_page.parse_products_page()
 
-    # Print output
+    if not products_list:
+        print("No products found. Please check the AWS products page or the parsing logic.")
+        return
+
     quotify = lambda x: '"' + x + '"'
-
-    # Print header - keys of first time
     print(','.join(map(quotify, products_list[0].keys())))
-
-    # Print products
     for product in products_list:
         print(','.join(map(quotify, product.values())))
 
