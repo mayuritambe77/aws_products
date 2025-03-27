@@ -32,19 +32,35 @@ class ProductsPage:
             f.write(html_content)
 
         output = []
-        sections = html_obj.xpath('//*[contains(@class, "lb-item-wrapper")]')
+        # Update the XPath to match the current structure
+        sections = html_obj.xpath('//div[contains(@class, "lb-grid")]')  # Adjust this XPath as needed
+        print(f"Found {len(sections)} product sections")  # Debugging statement
+
         if not sections:
             print("No sections found. Check the HTML structure.")
+            return output
+
         for section in sections:
-            category = section.find('a/span').text.strip()
+            # Extract category name
+            category = section.xpath('.//h2/text()')
+            if not category:
+                continue
+            category = category[0].strip()
+            print(f"Category: {category}")  # Debugging statement
+
+            # Extract product details
             products = []
-            for svc in section.findall('div/div/a'):
-                products.append({
-                    'Category': category,
-                    'Product': svc.text.strip(),
-                    'Description': svc.find('span').text.strip(),
-                    'Link': self.aws_url + svc.get('href').strip()
-                })
+            for svc in section.xpath('.//a[contains(@class, "lb-txt-none")]'):  # Adjust this XPath for product links
+                product_name = svc.text_content().strip()
+                product_link = svc.get('href', '').strip()
+                if product_name and product_link:
+                    products.append({
+                        'Category': category,
+                        'Product': product_name,
+                        'Description': '',  # Add logic to extract descriptions if available
+                        'Link': self.aws_url + product_link if product_link.startswith('/') else product_link
+                    })
+            print(f"Found {len(products)} products in this category")  # Debugging statement
             output += sorted(products, key=lambda x: x['Product'])
         return output
 
